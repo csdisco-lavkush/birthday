@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>birthday.js</title>
+<style>
+  :root{
+    --bg:#0d1117;
+    --panel:#161b22;
+    --panel2:#0b0f14;
+    --line:#21262d;
+    --text:#c9d1d9;
+    --dim:#8b949e;
+    --green:#3fb950;
+    --blue:#58a6ff;
+    --purple:#bc8cff;
+    --orange:#ffa657;
+    --pink:#ff7b9c;
+    --gutter:#484f58;
+    --mono:"SF Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(900px 500px at 80% -10%, rgba(88,166,255,.10), transparent 60%),
+      radial-gradient(800px 500px at 0% 110%, rgba(188,140,255,.10), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--mono);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    overflow-x:hidden;
+    min-height:100vh;
+  }
+
+  .app{width:100%;max-width:720px;}
+
+  .window{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:12px;
+    box-shadow:0 24px 60px rgba(0,0,0,.5);
+    overflow:hidden;
+  }
+
+  .titlebar{
+    display:flex;align-items:center;gap:8px;
+    padding:12px 14px;
+    background:var(--panel2);
+    border-bottom:1px solid var(--line);
+  }
+  .dot{width:12px;height:12px;border-radius:50%;}
+  .dot.r{background:#ff5f56;} .dot.y{background:#ffbd2e;} .dot.g{background:#27c93f;}
+  .filename{margin-left:8px;color:var(--dim);font-size:13px;}
+  .runbar{margin-left:auto;}
+
+  .btn{
+    font-family:var(--mono);
+    font-size:13px;
+    border:1px solid #2ea043;
+    background:#238636;
+    color:#fff;
+    padding:6px 14px;
+    border-radius:7px;
+    cursor:pointer;
+    display:inline-flex;align-items:center;gap:7px;
+    transition:transform .08s ease, background .15s ease, opacity .15s ease;
+  }
+  .btn:hover{background:#2ea043;}
+  .btn:active{transform:translateY(1px);}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .btn svg{width:12px;height:12px;fill:currentColor;}
+
+  .code{
+    padding:16px 0;
+    font-size:13.5px;
+    line-height:1.7;
+    overflow-x:auto;
+  }
+  .row{display:flex;padding:0 16px;white-space:pre;}
+  .ln{width:26px;flex:none;color:var(--gutter);text-align:right;margin-right:18px;user-select:none;}
+  .kw{color:var(--pink);}
+  .fn{color:var(--purple);}
+  .str{color:var(--orange);}
+  .var{color:var(--blue);}
+  .com{color:var(--dim);font-style:italic;}
+  .num{color:#79c0ff;}
+
+  .console{
+    border-top:1px solid var(--line);
+    background:var(--panel2);
+  }
+  .console-head{
+    padding:8px 16px;color:var(--dim);font-size:12px;
+    border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:8px;
+  }
+  .console-head .live{width:8px;height:8px;border-radius:50%;background:#30363d;transition:background .2s;}
+  .console-head.on .live{background:var(--green);box-shadow:0 0 8px var(--green);}
+  .out{
+    padding:14px 16px;
+    min-height:64px;
+    font-size:13.5px;
+    line-height:1.7;
+  }
+  .out .line{opacity:0;}
+  .out .ok{color:var(--green);}
+  .out .info{color:var(--dim);}
+  .cursor{display:inline-block;width:8px;height:15px;background:var(--green);vertical-align:-2px;animation:blink 1s steps(1) infinite;}
+  @keyframes blink{50%{opacity:0;}}
+
+  /* ============ GLASS MODAL ============ */
+  .overlay{
+    position:fixed;inset:0;z-index:40;
+    display:flex;align-items:center;justify-content:center;
+    padding:20px;
+    background:rgba(6,9,14,.55);
+    -webkit-backdrop-filter:blur(14px) saturate(120%);
+    backdrop-filter:blur(14px) saturate(120%);
+    opacity:0;visibility:hidden;
+    transition:opacity .45s ease, visibility .45s ease;
+  }
+  .overlay.show{opacity:1;visibility:visible;}
+
+  .glass{
+    position:relative;
+    width:100%;max-width:440px;
+    padding:36px 30px 30px;
+    text-align:center;
+    border-radius:24px;
+    background:
+      linear-gradient(160deg, rgba(255,255,255,.14), rgba(255,255,255,.04) 42%, rgba(255,255,255,.02));
+    border:1px solid rgba(255,255,255,.18);
+    -webkit-backdrop-filter:blur(26px) saturate(160%);
+    backdrop-filter:blur(26px) saturate(160%);
+    box-shadow:
+      0 30px 80px rgba(0,0,0,.55),
+      inset 0 1px 0 rgba(255,255,255,.35),
+      inset 0 -1px 0 rgba(255,255,255,.06);
+    transform:translateY(24px) scale(.94);
+    opacity:0;
+    transition:transform .5s cubic-bezier(.22,1,.36,1), opacity .45s ease;
+    overflow:hidden;
+  }
+  .overlay.show .glass{transform:none;opacity:1;}
+  /* top sheen */
+  .glass::before{
+    content:"";position:absolute;inset:0;border-radius:24px;pointer-events:none;
+    background:radial-gradient(140% 60% at 50% -10%, rgba(255,255,255,.25), transparent 60%);
+  }
+  /* animated gradient ring glow */
+  .glass::after{
+    content:"";position:absolute;inset:-1px;border-radius:24px;pointer-events:none;
+    padding:1px;
+    background:linear-gradient(135deg, rgba(88,166,255,.7), rgba(188,140,255,.5), rgba(255,123,156,.6));
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;mask-composite:exclude;
+    opacity:.9;
+  }
+  .glass > *{position:relative;z-index:1;}
+
+  .close{
+    position:absolute;top:14px;right:16px;z-index:2;
+    width:30px;height:30px;border-radius:50%;
+    border:1px solid rgba(255,255,255,.2);
+    background:rgba(255,255,255,.08);
+    color:#e8edf3;font-size:16px;line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:background .15s;
+  }
+  .close:hover{background:rgba(255,255,255,.18);}
+
+  .avatar{
+    width:118px;height:118px;border-radius:50%;
+    margin:0 auto 18px;
+    object-fit:cover;
+    display:flex;align-items:center;justify-content:center;
+    font-size:44px;color:#e8edf3;
+    background:
+      linear-gradient(rgba(20,26,34,.6),rgba(20,26,34,.6)) padding-box,
+      linear-gradient(135deg,var(--blue),var(--purple),var(--pink)) border-box;
+    border:3px solid transparent;
+    box-shadow:0 10px 30px rgba(0,0,0,.4), 0 0 0 6px rgba(255,255,255,.04);
+  }
+
+  .hb{
+    font-size:clamp(24px,6vw,32px);
+    margin:4px 0 4px;font-weight:700;letter-spacing:.2px;
+    background:linear-gradient(135deg,#dbe7ff,#bc8cff 55%,#ff7b9c);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    text-shadow:0 1px 20px rgba(188,140,255,.25);
+  }
+  .name{color:#f0f4f8;font-size:16px;margin-bottom:14px;font-weight:500;}
+  .msg{color:#d7dde6;font-size:14px;line-height:1.75;max-width:46ch;margin:0 auto 22px;}
+  .glass code{
+    color:#a8ffcf;background:rgba(255,255,255,.08);
+    padding:1px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.08);
+  }
+  .again{
+    font-family:var(--mono);font-size:13px;
+    border:1px solid rgba(255,255,255,.22);
+    background:rgba(255,255,255,.10);color:#eef3f8;
+    padding:9px 20px;border-radius:10px;cursor:pointer;
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+    transition:background .15s, transform .08s;
+  }
+  .again:hover{background:rgba(255,255,255,.2);}
+  .again:active{transform:translateY(1px);}
+
+  #confetti{position:fixed;inset:0;pointer-events:none;z-index:60;}
+</style>
+</head>
+<body>
+  <canvas id="confetti"></canvas>
+
+  <div class="app">
+    <div class="window">
+      <div class="titlebar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="filename">birthday.js</span>
+        <span class="runbar">
+          <button class="btn" id="run">
+            <svg viewBox="0 0 16 16"><path d="M4 2.5v11l9-5.5-9-5.5z"/></svg>
+            Run
+          </button>
+        </span>
+      </div>
+
+      <div class="code">
+        <div class="row"><span class="ln">1</span><span class="com">// run this before the standup 🎂</span></div>
+        <div class="row"><span class="ln">2</span><span class="kw">function</span> <span class="fn">celebrate</span>(<span class="var">manager</span>) {</div>
+        <div class="row"><span class="ln">3</span>  <span class="kw">const</span> <span class="var">yearsShipped</span> = <span class="var">manager</span>.age <span class="kw">+</span> <span class="num">1</span>;</div>
+        <div class="row"><span class="ln">4</span>  <span class="var">console</span>.<span class="fn">log</span>(<span class="str">`Deploying birthday v${yearsShipped}...`</span>);</div>
+        <div class="row"><span class="ln">5</span>  <span class="kw">return</span> <span class="str">"Happy Birthday!"</span>;</div>
+        <div class="row"><span class="ln">6</span>}</div>
+        <div class="row"><span class="ln">7</span><span class="fn">celebrate</span>(<span class="var">boss</span>);</div>
+      </div>
+
+      <div class="console">
+        <div class="console-head" id="chead"><span class="live"></span> Console</div>
+        <div class="out" id="out"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ GLASS POPUP ============ -->
+  <div class="overlay" id="overlay">
+    <div class="glass" role="dialog" aria-modal="true" aria-label="Birthday message">
+      <button class="close" id="close" aria-label="Close">&times;</button>
+
+      <!-- ==== EDIT: photo (id=avatar) + name (id=mgrname) + message below ==== -->
+      <div class="avatar" id="avatar"><img style="border-radius: 100%;" src="riley.webp" alt="riley" width="118px" height="118px"></div>
+      <div class="hb">🎉 Happy Birthday! 🎉</div>
+      <div class="name" id="mgrname">To the best manager &amp; developer</div>
+      <div class="msg">
+        Thanks for always <code>merging</code> the team together, <code>refactoring</code>
+        our chaos into clean code, and never leaving a bug — or a teammate — behind.
+        Wishing you a year with zero <code>blockers</code>, green builds, and no
+        production incidents. 🚀
+      </div>
+      <button class="again" id="again">↻ run again</button>
+    </div>
+  </div>
+
+<script>
+/* =========================================================
+   PERSONALIZE (all optional, 2 min):
+   1) NAME  -> edit text in <div id="mgrname">…</div>
+   2) PHOTO -> set PHOTO below to an image URL (or a base64 data URI).
+              Leave "" to keep the balloon emoji.
+   3) MESSAGE -> edit the <div class="msg">…</div> copy.
+   ========================================================= */
+const PHOTO = ""; // e.g. "https://.../boss.jpg"
+
+if (PHOTO) {
+  const a = document.getElementById('avatar');
+  a.textContent = "";
+  a.style.backgroundImage =
+    `linear-gradient(rgba(20,26,34,.15),rgba(20,26,34,.15)), url("${PHOTO}")`;
+  a.style.backgroundClip = "padding-box, border-box";
+  a.style.backgroundOrigin = "border-box";
+  a.style.backgroundSize = "cover, cover";
+  a.style.backgroundPosition = "center";
+}
+
+const out     = document.getElementById('out');
+const runBtn  = document.getElementById('run');
+const chead   = document.getElementById('chead');
+const overlay = document.getElementById('overlay');
+const again   = document.getElementById('again');
+const closeB  = document.getElementById('close');
+
+const lines = [
+  { cls:'info', text:'> node birthday.js' },
+  { cls:'info', text:'Deploying birthday v∞ ...' },
+  { cls:'ok',   text:'✓ dependencies of joy installed' },
+  { cls:'ok',   text:'✓ build passed — 0 bugs, all green' },
+  { cls:'ok',   text:'✓ returned: "Happy Birthday!" 🎂' },
+];
+
+function type(el, text, speed=26){
+  return new Promise(res=>{
+    el.style.opacity = 1;
+    let i=0;
+    const cur=document.createElement('span'); cur.className='cursor';
+    el.appendChild(cur);
+    const t=setInterval(()=>{
+      cur.insertAdjacentText('beforebegin', text[i++]);
+      if(i>=text.length){clearInterval(t); cur.remove(); res();}
+    }, speed);
+  });
+}
+
+async function run(){
+  runBtn.disabled = true;
+  hideModal();
+  out.innerHTML = '';
+  chead.classList.add('on');
+
+  for(const l of lines){
+    const div=document.createElement('div');
+    div.className='line '+l.cls;
+    out.appendChild(div);
+    await type(div, l.text);
+    await new Promise(r=>setTimeout(r, 220));
+  }
+
+  await new Promise(r=>setTimeout(r, 400));
+  showModal();
+  burst();
+  runBtn.disabled = false;
+}
+
+function showModal(){ overlay.classList.add('show'); }
+function hideModal(){ overlay.classList.remove('show'); }
+
+runBtn.addEventListener('click', run);
+again.addEventListener('click', ()=>{ hideModal(); setTimeout(run, 350); });
+closeB.addEventListener('click', hideModal);
+overlay.addEventListener('click', e=>{ if(e.target===overlay) hideModal(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') hideModal(); });
+
+/* ---------- confetti ---------- */
+const cv=document.getElementById('confetti');
+const ctx=cv.getContext('2d');
+let W,H,pieces=[];
+function size(){W=cv.width=innerWidth;H=cv.height=innerHeight;}
+size(); addEventListener('resize', size);
+const colors=['#58a6ff','#bc8cff','#ff7b9c','#3fb950','#ffa657','#79c0ff'];
+
+function burst(){
+  for(let i=0;i<150;i++){
+    pieces.push({
+      x:W/2 + (Math.random()-.5)*160,
+      y:H/2,
+      vx:(Math.random()-.5)*11,
+      vy:Math.random()*-13-4,
+      g:0.28+Math.random()*0.12,
+      s:5+Math.random()*7,
+      rot:Math.random()*Math.PI,
+      vr:(Math.random()-.5)*0.3,
+      c:colors[(Math.random()*colors.length)|0],
+      life:130+Math.random()*40
+    });
+  }
+  if(!running){running=true; loop();}
+}
+let running=false;
+function loop(){
+  ctx.clearRect(0,0,W,H);
+  pieces.forEach(p=>{
+    p.vy+=p.g; p.x+=p.vx; p.y+=p.vy; p.rot+=p.vr; p.life--;
+    ctx.save();
+    ctx.translate(p.x,p.y); ctx.rotate(p.rot);
+    ctx.fillStyle=p.c;
+    ctx.globalAlpha=Math.max(0,p.life/60);
+    ctx.fillRect(-p.s/2,-p.s/2,p.s,p.s*0.6);
+    ctx.restore();
+  });
+  pieces=pieces.filter(p=>p.life>0 && p.y<H+40);
+  if(pieces.length){requestAnimationFrame(loop);} else {running=false; ctx.clearRect(0,0,W,H);}
+}
+</script>
+</body>
+</html>
